@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_script">
+    <sys_ui_script action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <description/>
+        <global>false</global>
+        <name>x_snc_coolconf19.service_worker</name>
+        <script><![CDATA[var PORTAL_NAME = 'coolconf19';
+var HOST_NAME = 'https://dev49311.service-now.com';
+var PORTAL_ID = '22ca4c64e54133007f4465064edd2e3c'; //dev49311, CoolConf 2019
+var CACHE_NAME = 'coolconf19-cache-v1';
+
+var pagesToPreCache = ['coolconf_agenda', 'coolconf_faq', 'coolconf_info', 'coolconf_plan'];
+var urlsToPreCache = [];
+
+var PAGE_API_PATH = '/api/now/sp/page';
+
+self.addEventListener('install', function (event) {
+    console.log('-- SW Installed');
+
+    event.waitUntil(preCachePages());
+    preCacheUrls();
+
+    function preCachePages() {
+        return caches.open(CACHE_NAME)
+            .then(function (cache) {
+                console.log('- Caching pagesToPreCache');
+                return cache.addAll(getPageAPIRequestURLs(pagesToPreCache));
+            })
+    }
+
+    function preCacheUrls() {
+        return caches.open(CACHE_NAME)
+            .then(function (cache) {
+                console.log('- Caching urlsToPreCache');
+                return cache.addAll(urlsToPreCache);
+            })
+    }
+});
+
+self.addEventListener('fetch', function (event) {
+
+    event.respondWith(cacheStrategy(event));
+
+    function cacheStrategy(event) {
+        var req = event.request;
+        console.log(' ---------- fetch request ----------- ');
+        var normalizedPath = removeTimeParam(req.url);
+
+        return caches.match(normalizedPath).then(function (response) {
+            if (response) {
+                console.log('+ found in cache : ', normalizedPath);
+                fetchAndCache(event.request, normalizedPath);
+                return response;
+            }
+
+            return fetchAndCache(event.request, normalizedPath);
+
+        });
+
+    }
+
+});
+
+/**
+ * Converts an array of page ids, to an array of url strings
+ * corresponding to page REST API request needed to get the
+ * content of that page.
+ */
+function getPageAPIRequestURLs(pagesToCache) {
+    return pagesToCache.map(function (page) {
+        var url = new URL('/' + PORTAL_NAME, HOST_NAME);
+        url.searchParams.set('id', page);
+        return getPageAPIUrl(url);
+
+    });
+}
+
+/**
+ * Takes a url and returns a new string of the url
+ * corresponding to the page API request needed
+ */
+function getPageAPIUrl(urlString) {
+    var url = new URL(urlString);
+    var searchParams = url.searchParams;
+    var pageId = searchParams.get('id');
+    var pageApiUrl = new URL(PAGE_API_PATH, HOST_NAME);
+    pageApiUrl.searchParams.set('id', pageId);
+    pageApiUrl.searchParams.set('portal_id', PORTAL_ID);
+    pageApiUrl.searchParams.set('request_uri', url.pathname + url.search);
+    return pageApiUrl.toString();
+}
+
+/**
+ * Removes the time param in a url to allow caching
+ */
+function removeTimeParam(urlString) {
+    var url = new URL(urlString);
+    var params = url.searchParams;
+    params.delete('time');
+    return url.toString();
+}
+
+/**
+ * Does a network request and returns a Response.
+ * If the Response is valid, it clones it and adds it to the cache
+ * with the normalizedUrl as a key.
+ */
+function fetchAndCache(request, normalizedUrl) {
+    return fetch(request, { credentials: 'include' }).then(
+        function (response) {
+
+            if (!response || String(response.status).charAt(0) != 2 || response.type !== 'basic') {
+                console.log('+ response is not valid', response.status, response.type);
+                return response;
+            }
+            var responseToCache = response.clone();
+
+            caches.open(CACHE_NAME)
+                .then(function (cache) {
+                    console.log('+ caching :', normalizedUrl);
+                    cache.put(normalizedUrl, responseToCache);
+                });
+
+            return response;
+        }
+    ).catch(function (err) {
+        console.log('+ ERR fetch', err);
+        return new Response("There was a problem");
+    })
+}]]></script>
+        <script_name>service_worker</script_name>
+        <sys_class_name>sys_ui_script</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2019-05-26 00:43:31</sys_created_on>
+        <sys_id>04dd26434f61330055c1704ca310c73d</sys_id>
+        <sys_mod_count>4</sys_mod_count>
+        <sys_name>x_snc_coolconf19.service_worker</sys_name>
+        <sys_package display_value="CoolConf19" source="x_snc_coolconf19">5aba8c24e54133007f4465064edd2ee1</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="CoolConf19">5aba8c24e54133007f4465064edd2ee1</sys_scope>
+        <sys_update_name>sys_ui_script_04dd26434f61330055c1704ca310c73d</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2019-05-26 01:20:31</sys_updated_on>
+        <ui_type>0</ui_type>
+        <use_scoped_format>false</use_scoped_format>
+    </sys_ui_script>
+</record_update>
